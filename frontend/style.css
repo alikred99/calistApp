@@ -63,7 +63,7 @@ h1, h2, .display {
 }
 
 .timer-label {
-   font-size: 0.75rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--text-dim);
