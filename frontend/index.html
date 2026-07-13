@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>calistapp</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <form action="" id="catalogo" class="panel">
+        <p>Catalogo</p>
+        <select name="" id="catalogo-select"></select>
+        <p>Numero de reps</p>
+        <input type="number" name="reps" id="catalogo-reps">
+        <p>Numero de series</p>
+        <input type="number" name="series" id="catalogo-series">
+        <button id="btn-agregar-ejercicio" type="button">Agregar ejercicio</button>
+    </form>
+    <div class="panel" id="timer-panel">
+    <button id="btn-inicio-entreno">Iniciar entrenamiento</button>
+    <p class="timer-label">Tiempo transcurrido</p>
+    <div id="timer">0</div>
+    <button id="btn-fin-entreno">Finalizar entrenamiento</button>
+    </div>
+    <div id="historial-ejercicios"></div>
+    <button type="button" id="btn-mostrar-historial">Sesiones</button>
+    <div id="historial-sesiones">
+        
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
