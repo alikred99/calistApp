@@ -3,6 +3,7 @@ let horaFin
 let contador = 0
 let intervalo
 let sesionId
+const API_URL = "https://calistapp.onrender.com"
 document.getElementById("btn-fin-entreno").disabled = true
 document.getElementById("btn-inicio-entreno").addEventListener("click", function(){
     horaInicio = new Date()
@@ -13,7 +14,7 @@ document.getElementById("btn-inicio-entreno").addEventListener("click", function
     document.getElementById("btn-inicio-entreno").disabled = true
     document.getElementById("btn-fin-entreno").disabled = false
     horaInicioFormateada = horaInicio.toTimeString().slice(0,8)
-    fetch("http://localhost:8000/sesiones", {
+    fetch(`${API_URL}/sesiones`, {
     method: "POST",
     headers: {
         "Content-Type": "application/json"
@@ -39,7 +40,7 @@ document.getElementById("btn-fin-entreno").addEventListener("click", function(){
     document.getElementById("timer").textContent = contador
     horaFinFormateada = horaFin.toTimeString().slice(0,8)
     
-    fetch(`http://localhost:8000/sesiones/${sesionId}`, {
+    fetch(`${API_URL}/sesiones/${sesionId}`, {
     method: "PUT",
     headers: {
         "Content-Type": "application/json"
@@ -54,7 +55,7 @@ document.getElementById("btn-fin-entreno").addEventListener("click", function(){
 })
 
 function cargarCatalogo() {
-    fetch ("http://localhost:8000/catalogo")
+    fetch(`${API_URL}/catalogo`)
     .then(response => response.json())
     .then(data => {
         const select = document.getElementById("catalogo-select")
@@ -73,7 +74,7 @@ document.getElementById("btn-agregar-ejercicio").addEventListener("click", funct
     const nombre = select.selectedOptions[0].text
     const reps = document.getElementById("catalogo-reps").value
     const series = document.getElementById("catalogo-series").value
-    fetch(`http://localhost:8000/ejercicios/${sesionId}`, {
+    fetch(`${API_URL}/ejercicios/${sesionId}`, {
     method: "POST",
     headers: {
         "Content-Type": "application/json"
@@ -91,7 +92,7 @@ document.getElementById("btn-agregar-ejercicio").addEventListener("click", funct
 
 
 function cargarEjercicios(){
-    fetch(`http://localhost:8000/ejercicios/sesion/${sesionId}`)
+    fetch(`${API_URL}/ejercicios/sesion/${sesionId}`)
     .then(response => response.json())
     .then(data => {
         const historial = document.getElementById("historial-ejercicios")
@@ -106,7 +107,7 @@ function cargarEjercicios(){
 }
 
 document.getElementById("btn-mostrar-historial").addEventListener("click", function(){
-    fetch("http://localhost:8000/sesiones/historial")
+    fetch(`${API_URL}/sesiones/historial`)
     .then(response => response.json())
     .then(data => {
         const historial = document.getElementById("historial-sesiones")
