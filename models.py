@@ -17,6 +17,7 @@ class Sesion(Base):
     fecha = Column(Date, default=date.today)
     hora_inicio = Column(Time, nullable=False)
     hora_fin = Column(Time)
+    rutina_id = Column(INTEGER, ForeignKey("rutinas.id"))
 
 class Catalogo(Base):
     __tablename__ = "catalogo_ejercicios"

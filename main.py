@@ -54,6 +54,7 @@ class RutinaCrear(BaseModel):
 
 class SesionBase(BaseModel):
     hora_inicio: time
+    rutina_id: int
 
 
 class SesionUpdate(BaseModel):
@@ -161,6 +162,19 @@ def listar_rutinas():
     finally:
         db.close()
     
+@app.delete("/rutinas/{id}")
+def eliminar_rutina_por_id(id: int):
+    db = SessionLocal()
+    try:
+        rutina = db.query(Rutina).filter(Rutina.id==id).first()
+        if rutina:
+            db.query(RutinaEjercicio).filter(RutinaEjercicio.id_rutina == id).delete()
+            db.delete(rutina)
+            db.commit()
+            return {"mensaje": "eliminado"}
+        raise HTTPException(status_code=404,detail="item not found")
+    finally:
+        db.close()
 
 
 @app.get("/sesiones")
@@ -216,7 +230,7 @@ def agregar_ejercicio(sesion_id: int, data: EjercicioBase):
 def agregar_sesion(data: SesionBase):
     db = SessionLocal()
     try:
-        nuevo = Sesion(hora_inicio=data.hora_inicio)
+        nuevo = Sesion(hora_inicio=data.hora_inicio, rutina_id=data.rutina_id)
         db.add(nuevo)
         db.commit()
         db.refresh(nuevo)
@@ -228,7 +242,7 @@ def agregar_sesion(data: SesionBase):
 
 
 @app.get("/ejercicios/sesion/{sesion_id}",response_model=List[EjercicioResponse])
-def buscar_por_id(sesion_id: int):
+def buscar_sesion_por_id(sesion_id: int):
     db = SessionLocal()
     try:
         busqueda = db.query(Ejercicio).filter(Ejercicio.sesion_id == sesion_id).all()
@@ -238,13 +252,40 @@ def buscar_por_id(sesion_id: int):
     finally:
         db.close()
 @app.get("/ejercicios/{id}",response_model=EjercicioResponse)
-def buscar_por_id(id: int):
+def buscar_ejercicio_por_id(id: int):
     db = SessionLocal()
     try:
         busqueda = db.query(Ejercicio).filter(Ejercicio.id == id).first()
         if busqueda:
             return busqueda
         raise HTTPException(status_code=404,detail="item not found")
+    finally:
+        db.close()
+
+@app.get("/rutina/{id}")
+def buscar_rutina_por_id(id: int):
+    db = SessionLocal()
+    try:
+        rutina = db.query(Rutina).filter(Rutina.id == id).first()
+        if rutina:
+            relaciones = db.query(RutinaEjercicio).filter(RutinaEjercicio.id_rutina == rutina.id).all()
+            lista_ejercicios = []
+            for relacion in relaciones:
+                ejercicio_catalogo = db.query(Catalogo).filter(Catalogo.id == relacion.id_ejercicios).first()
+                lista_ejercicios.append({
+                    "nombre": ejercicio_catalogo.nombre,
+                    "orden": relacion.orden,
+                    "reps": relacion.reps,
+                    "series": relacion.series
+                    })
+            dato = {
+                "id": rutina.id,
+                "nombre": rutina.nombre,
+                "ejercicios": lista_ejercicios
+                }
+            return dato
+        raise HTTPException(status_code=404,detail="item not found")
+            
     finally:
         db.close()
     
