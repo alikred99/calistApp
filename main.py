@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from models import Ejercicio, Sesion, Catalogo
+from fastapi import FastAPI, HTTPException, Depends
+from models import Ejercicio, Sesion, Catalogo, Usuario, Rutina, RutinaEjercicio
 from pydantic import BaseModel, Field, field_serializer
 from databases import SessionLocal
 from datetime import date, time, datetime
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
+from auth import hashear_password, verificar_password, crear_token, obtener_usuario_actual
+from fastapi.security import OAuth2PasswordRequestForm
 app = FastAPI()
 
 
@@ -15,10 +17,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class UsuarioRegistro(BaseModel):
+    usuario: str
+    contrasena: str = Field(min_length=8)
+
+class UsuarioResponse(BaseModel):
+    id: int
+    usuario: str
+    class Config:
+        from_attributes = True
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+class UsuarioLogin(BaseModel):
+    usuario: str
+    contrasena: str = Field(min_length=8)
+
+    
 class EjercicioBase(BaseModel):
     nombre: str
     reps: int = Field(gt=0)
     series: int = Field(gt=0)
+
+
+class EjercicioEnRutina(BaseModel):
+    id_ejercicios: int
+    orden: int
+    reps: int = Field(gt=0)
+    series: int = Field(gt=0)
+
+
+class RutinaCrear(BaseModel):
+    nombre: str
+    ejercicios: list[EjercicioEnRutina]
 
 class SesionBase(BaseModel):
     hora_inicio: time
@@ -31,15 +63,8 @@ class EjercicioResponse(BaseModel):
     nombre: str
     reps: int
     series: int
-    fecha: date
-
-    @field_serializer('fecha')
-    def formatear_fecha(self, fecha: date) -> str:
-        return fecha.strftime("%d/%m/%y")
-    
     class Config:
         from_attributes = True
-
 
 
 @app.get("/ejercicios",response_model=List[EjercicioResponse])
@@ -51,6 +76,91 @@ def listar_ejercicios():
     finally:
         db.close()
 
+@app.post("/registro", response_model=UsuarioResponse)
+def registrar_usuario(data: UsuarioRegistro):
+    db = SessionLocal()
+    try:
+        
+        existe = db.query(Usuario).filter(Usuario.usuario == data.usuario).first()
+        if existe:
+            raise HTTPException(status_code=400, detail="usuario ya existe")
+        else:
+            contrasena_hasheada = hashear_password(data.contrasena)
+            nuevo = Usuario(usuario = data.usuario, contrasena=contrasena_hasheada)
+            db.add(nuevo)
+            db.commit()
+            db.refresh(nuevo)
+            return nuevo
+    finally:
+        db.close()
+
+
+@app.post("/login", response_model=TokenResponse)
+def iniciar_usuario(data: OAuth2PasswordRequestForm = Depends()):
+    db = SessionLocal()
+    try:
+        existe = db.query(Usuario).filter(Usuario.usuario == data.username).first()
+        if not existe:
+            raise HTTPException(status_code=401, detail="Acceso no autorizado")
+        else:
+            contrasena = data.password
+            if verificar_password(contrasena, existe.contrasena):
+                token = crear_token({"sub": str(existe.id)})
+                return {"access_token": token, "token_type": "bearer"}
+            else:
+                raise HTTPException(status_code=401, detail="Acceso no autorizado")
+    finally:
+        db.close()
+
+
+@app.post("/rutinas")
+def crear_rutinas(data: RutinaCrear):
+    db = SessionLocal()
+    try:
+        nuevo = Rutina(nombre=data.nombre)
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        for item in data.ejercicios:
+            nueva_relacion = RutinaEjercicio(
+                id_rutina = nuevo.id,
+                id_ejercicios = item.id_ejercicios,
+                orden = item.orden,
+                reps = item.reps,
+                series = item.series
+            )
+            db.add(nueva_relacion)
+        db.commit()
+        return nuevo
+    finally:
+        db.close()
+@app.get("/rutinas")
+def listar_rutinas():
+    db = SessionLocal()
+    try:
+        rutinas = db.query(Rutina).all()
+        resultado = []
+        for rutina in rutinas:
+            relaciones = db.query(RutinaEjercicio).filter(RutinaEjercicio.id_rutina == rutina.id).all()
+            lista_ejercicios = []
+            for relacion in relaciones:
+                ejercicio_catalogo = db.query(Catalogo).filter(Catalogo.id == relacion.id_ejercicios).first()
+                lista_ejercicios.append({
+                    "nombre": ejercicio_catalogo.nombre,
+                    "orden": relacion.orden,
+                    "reps": relacion.reps,
+                    "series": relacion.series
+                })
+            dato = {
+                    "id": rutina.id,
+                    "nombre": rutina.nombre,
+                    "ejercicios": lista_ejercicios
+                }
+            resultado.append(dato)
+        return resultado
+    finally:
+        db.close()
+    
 
 
 @app.get("/sesiones")
@@ -63,7 +173,7 @@ def listar_sesiones():
         db.close()
     
 @app.get("/sesiones/historial")
-def listar_historial_sesiones():
+def listar_historial_sesiones(usuario_actual=Depends(obtener_usuario_actual)):
     db = SessionLocal()
     try:
         sesiones = db.query(Sesion).all()
@@ -96,7 +206,7 @@ def agregar_ejercicio(sesion_id: int, data: EjercicioBase):
         nuevo = Ejercicio(nombre=data.nombre, reps=data.reps, series=data.series, sesion_id=sesion_id)
         db.add(nuevo)
         db.commit()
-        db.refresh(nuevo)  # <- esto asegura que el objeto tiene todos los datos actualizados
+        db.refresh(nuevo)  # <- asegura que tenga los datos actualizados
         return nuevo
     finally:
         db.close()
@@ -113,6 +223,8 @@ def agregar_sesion(data: SesionBase):
         return nuevo
     finally:
         db.close()
+
+
 
 
 @app.get("/ejercicios/sesion/{sesion_id}",response_model=List[EjercicioResponse])
